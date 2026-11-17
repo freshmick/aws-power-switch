@@ -21,7 +21,7 @@ export function createResources({ ec2, rds, tagKey }) {
 
   async function listType(type) {
     const instances = await adapters[type].listInstances();
-    return instances.filter((instance) => tagKey in instance.tags).map((instance) => toResource(type, instance));
+    return instances.filter((instance) => tagKey in instance.tags).map((instance) => toResource(type, instance, tagKey));
   }
 
   async function list() {
@@ -45,8 +45,9 @@ export function createResources({ ec2, rds, tagKey }) {
   };
 }
 
-function toResource(type, { id, name, state, stoppedAt }) {
-  const resource = { type, id, name: name || id, state: STATES[type][state] ?? state };
+// group: the tag's value, '' when empty. It only groups resources on the page; access checks the key.
+function toResource(type, { id, name, state, stoppedAt, tags }, tagKey) {
+  const resource = { type, id, name: name || id, state: STATES[type][state] ?? state, group: tags[tagKey] };
   if (type === 'rds' && resource.state === 'stopped') {
     resource.autoStartAt = stoppedAt ? new Date(stoppedAt.getTime() + RDS_AUTO_START_DAYS * DAY_MS).toISOString() : null;
   }
