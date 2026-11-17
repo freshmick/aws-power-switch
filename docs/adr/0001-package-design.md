@@ -117,10 +117,8 @@ subdirectory.
 
 Alternatives considered:
 
-- **Publishing to npm, PyPI or the Terraform registry.** The repo is private
-  for now, and private registries would mean token handling for consumers.
-  Git tags work for both tools today; registries can follow once the repo is
-  public.
+- **Publishing to npm, PyPI or the Terraform registry.** Git tags work for
+  both tools today; registries can follow later.
 - **Separate versions per wrapper.** The wrappers must deploy the same app, so
   one tag for everything keeps them from drifting apart.
 
@@ -149,7 +147,7 @@ Alternatives considered:
 - Installs depend on Cloudflare. A project without Cloudflare Access cannot
   use v1.
 - CDK users need Terraform for the Cloudflare side.
-- Consumers pin a git tag and upgrade deliberately. They need git access to
-  the repo until it is public and published to registries.
+- Consumers pin a git tag and upgrade deliberately. Nothing is published to
+  registries yet.
 - Adding a resource type or an auth provider is a later, deliberate change,
   not a configuration option.

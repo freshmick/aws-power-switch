@@ -345,6 +345,8 @@ sequenceDiagram
 
 </details>
 
+Found a security problem? [SECURITY.md](SECURITY.md) says how to report it privately.
+
 ## Why a Worker and not a tunnel
 
 A Cloudflare Tunnel needs a connector (`cloudflared`) running on some machine. If that machine is one of the instances the switch turns off, stopping it cuts off the switch itself, and there's no page left to start it again. The Worker runs on Cloudflare and forwards straight to the Lambda's Function URL, so the switch keeps working whatever state your instances are in.
