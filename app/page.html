@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Power switch</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+    .state { font-weight: 600; }
+    .running { color: #1f7a1f; }
+    .stopped { color: #888; }
+    .starting, .stopping { color: #b36b00; }
+    .note { font-size: 0.85rem; color: #555; margin-top: 0.25rem; }
+    .error { color: #b00020; }
+    button { margin-right: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Power switch</h1>
+  <p>Start the database before the node; stop the node before the database.</p>
+  <p id="error" class="error" hidden></p>
+  <table>
+    <thead><tr><th>Resource</th><th>State</th><th></th></tr></thead>
+    <tbody id="resources"><tr><td colspan="3">Loading…</td></tr></tbody>
+  </table>
+
+  <script>
+    const REFRESH_MS = 5000;
+    const SETTLED = ['running', 'stopped'];
+    const LABELS = { ec2: 'EC2 node', rds: 'RDS database' };
+    let timer;
+
+    async function refresh() {
+      clearTimeout(timer);
+      try {
+        const response = await fetch('/api/resources');
+        if (!response.ok) throw new Error(`Loading failed (${response.status})`);
+        const { resources } = await response.json();
+        render(resources);
+        showError('');
+        if (resources.some((r) => !SETTLED.includes(r.state))) timer = setTimeout(refresh, REFRESH_MS);
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    async function change(resource, action) {
+      try {
+        const path = `/api/resources/${resource.type}/${encodeURIComponent(resource.id)}/${action}`;
+        const response = await fetch(path, { method: 'POST' });
+        if (!response.ok) throw new Error((await response.json()).error || `${action} failed`);
+      } catch (error) {
+        showError(error.message);
+      }
+      refresh();
+    }
+
+    function render(resources) {
+      const body = document.getElementById('resources');
+      body.replaceChildren();
+      if (!resources.length) {
+        body.append(row([cell('No resources tagged for the power switch.', 3)]));
+        return;
+      }
+      for (const resource of resources) {
+        const name = cell(`${resource.name} (${LABELS[resource.type] || resource.type})`);
+        const state = cell(resource.state);
+        state.className = `state ${resource.state}`;
+        if (resource.type === 'rds' && resource.state === 'stopped') state.append(autoStartNote(resource));
+        const actions = cell();
+        actions.append(
+          button('Start', resource.state !== 'stopped', () => change(resource, 'start')),
+          button('Stop', resource.state !== 'running', () => change(resource, 'stop')),
+        );
+        body.append(row([name, state, actions]));
+      }
+    }
+
+    function autoStartNote(resource) {
+      const note = document.createElement('div');
+      note.className = 'note';
+      note.textContent = resource.autoStartAt
+        ? `AWS will start this database again on ${new Date(resource.autoStartAt).toLocaleString()}.`
+        : 'AWS will start this database again 7 days after it was stopped.';
+      return note;
+    }
+
+    function row(cells) {
+      const tr = document.createElement('tr');
+      tr.append(...cells);
+      return tr;
+    }
+
+    function cell(text = '', colSpan = 1) {
+      const td = document.createElement('td');
+      td.textContent = text;
+      td.colSpan = colSpan;
+      return td;
+    }
+
+    function button(label, disabled, onClick) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.disabled = disabled;
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function showError(message) {
+      const el = document.getElementById('error');
+      el.textContent = message;
+      el.hidden = !message;
+    }
+
+    refresh();
+  </script>
+</body>
+</html>
