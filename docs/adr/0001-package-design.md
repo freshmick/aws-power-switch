@@ -20,10 +20,12 @@ is shaped the way it is.
 
 ## Decision
 
-### One install per AWS account
+### One install per AWS account and region
 
-Each install runs one Lambda in one AWS account and controls only that
-account's resources. There are no cross-account roles.
+Each install runs one Lambda in one AWS account and one region, and controls
+only the resources in that account and region. There are no cross-account
+roles. To cover another region, install again there with a different
+`name_prefix` and hostname. Several regions per install is left for later.
 
 Alternatives considered:
 
@@ -66,9 +68,9 @@ Alternatives considered:
   authorisation rule to keep in sync between IAM and the app, with no current
   need; values stay for display only.
 - **Per-group permissions.** Anyone who passes an install's Access policy can
-  switch every tagged resource in that account. Finer rules would need a
-  permission model the package does not have, and the account boundary already
-  separates projects.
+  switch every tagged resource in that account and region. Finer rules would
+  need a permission model the package does not have, and the account boundary
+  already separates projects.
 - **A server-side group route.** It would grow the server's attack surface;
   looping over the existing per-resource POSTs reuses checks that already
   exist.
@@ -136,14 +138,14 @@ Alternatives considered:
 
 ## Consequences
 
-- A compromise of one install reaches only one AWS account; the cost is one
-  page per account rather than one page for everything.
+- A compromise of one install stays inside its AWS account; the cost is one
+  page per account and region rather than one page for everything.
 - Behaviour and security checks are the same whichever wrapper installs the
   switch. Both wrappers must be kept in step, so CI runs the app tests,
   `terraform validate` on both modules and a CDK synth test on every PR.
 - Untagging a resource takes it out of the switch's reach immediately. Anyone
   allowed in by an install's Access policy can switch every tagged EC2 and RDS
-  instance in that account.
+  instance in that account and region.
 - Installs depend on Cloudflare. A project without Cloudflare Access cannot
   use v1.
 - CDK users need Terraform for the Cloudflare side.
