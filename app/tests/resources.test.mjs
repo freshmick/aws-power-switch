@@ -9,7 +9,7 @@ test('lists only tagged instances, RDS first, with normalised state', async () =
   const resources = createResources({ ec2: sampleEc2(), rds: sampleRds(), tagKey: TAG });
   assert.deepEqual(await resources.list(), [
     { type: 'rds', id: 'example-db', name: 'example-db', state: 'running', group: 'true' },
-    { type: 'ec2', id: 'i-0node', name: 'example-node', state: 'running', group: 'true' },
+    { type: 'ec2', id: 'i-0node', name: 'example-instance', state: 'running', group: 'true' },
   ]);
 });
 
