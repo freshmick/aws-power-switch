@@ -28,9 +28,21 @@ variable "power_hostname" {
   }
 }
 
-variable "function_url_parameter" {
-  description = "Name of the SSM parameter holding the Lambda's Function URL, e.g. /example/power/function_url."
+variable "function_url" {
+  description = "The Lambda's Function URL, e.g. https://abc.lambda-url.us-east-1.on.aws/. Set this or function_url_parameter, not both."
   type        = string
+  default     = null
+
+  validation {
+    condition     = (var.function_url == null) != (var.function_url_parameter == null)
+    error_message = "Set exactly one of function_url and function_url_parameter."
+  }
+}
+
+variable "function_url_parameter" {
+  description = "Name of the SSM parameter holding the Lambda's Function URL, e.g. /example/power/function_url. Set this or function_url, not both."
+  type        = string
+  default     = null
 }
 
 variable "allowed_idps" {

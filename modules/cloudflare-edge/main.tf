@@ -6,8 +6,15 @@ data "cloudflare_zone" "this" {
   filter = { name = var.zone_name }
 }
 
+# Read from SSM only when the caller names a parameter. The count keys on the parameter name, not on
+# function_url, because function_url is often another module's output and unknown until apply.
 data "aws_ssm_parameter" "function_url" {
-  name = var.function_url_parameter
+  count = var.function_url_parameter != null ? 1 : 0
+  name  = var.function_url_parameter
+}
+
+locals {
+  function_url = var.function_url_parameter != null ? data.aws_ssm_parameter.function_url[0].value : var.function_url
 }
 
 # --- Worker ---------------------------------------------------------------------------------------------
@@ -23,7 +30,7 @@ resource "cloudflare_workers_script" "power" {
   bindings = [{
     type = "plain_text"
     name = "FUNCTION_URL"
-    text = data.aws_ssm_parameter.function_url.value
+    text = local.function_url
   }]
 }
 

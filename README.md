@@ -72,10 +72,10 @@ The pieces talk through three SSM parameters in the Lambda's account and region.
 | Parameter | Written by | Read by |
 | --- | --- | --- |
 | `access_team_domain_parameter` | **you**, once (step 1) | the Lambda, at cold start |
-| `function_url_parameter` | the lambda module or the CDK construct | the edge module, at plan time |
+| `function_url_parameter` | the lambda module or the CDK construct | the edge module, at plan time, unless you pass it `function_url` instead |
 | `access_aud_parameter` | the edge module | the Lambda, at cold start |
 
-**Apply order:** the AWS side first (lambda module or CDK stack), then the edge module. The edge module reads the Function URL from the SSM parameter the AWS side writes, so it can't plan before that parameter exists. Until the edge has written the Access AUD parameter, the Lambda can't load its settings and every request fails; it tries again on the next request.
+**Apply order:** the AWS side first (lambda module or CDK stack), then the edge module. Given `function_url_parameter`, the edge module reads the Function URL from the SSM parameter the AWS side writes, so it can't plan before that parameter exists. Given `function_url` instead, it reads no parameter. Until the edge has written the Access AUD parameter, the Lambda can't load its settings and every request fails; it tries again on the next request.
 
 ### 1. Store your Access team domain
 
@@ -100,7 +100,7 @@ module "power_switch" {
 }
 ```
 
-If the edge module lives in the same root module, apply this one first with `terraform apply -target=module.power_switch`, then run `terraform apply`.
+If the edge module lives in the same root module, pass it `function_url = module.power_switch.function_url` instead of `function_url_parameter` and a single `terraform apply` does both. With `function_url_parameter`, apply this one first with `terraform apply -target=module.power_switch`, then run `terraform apply`.
 
 ### 2b. AWS side with CDK (Python)
 
@@ -162,7 +162,7 @@ Then tag some instances ([tag contract](#the-tag-contract)) and open `https://po
 | `reserved_concurrency` | no | `2` | Maximum concurrent invocations; caps what a flood on the public Function URL can use. |
 | `log_retention_days` | no | `14` | How long the function's logs are kept, in days. |
 
-**`modules/cloudflare-edge`** (all required)
+**`modules/cloudflare-edge`** (all required, except that you set exactly one of `function_url` and `function_url_parameter`)
 
 | Input | What it is |
 | --- | --- |
@@ -170,6 +170,7 @@ Then tag some instances ([tag contract](#the-tag-contract)) and open `https://po
 | `name_prefix` | Prefix for the Worker script and Access application names; lowercase letters, digits and hyphens. Unique per Cloudflare account. |
 | `zone_name` | Cloudflare zone the hostname belongs to, e.g. `example.com`. |
 | `power_hostname` | Hostname of the page, e.g. `power.example.com`; the same value as on the AWS side. |
+| `function_url` | The Function URL itself, e.g. the lambda module's `function_url` output. The module then reads no SSM parameter. |
 | `function_url_parameter` | Name of the SSM parameter holding the Function URL; the same name as on the AWS side. |
 | `allowed_idps` | IDs of existing Access identity providers to sign in with. Must not be empty. |
 | `policy_ids` | IDs of existing reusable Access policies, in precedence order. Must not be empty. |
@@ -302,7 +303,7 @@ node --test 'app/tests/*.test.mjs'
 
 # Terraform cloudflare-edge module and its Worker
 node --test modules/cloudflare-edge/worker.test.mjs
-(cd modules/cloudflare-edge && terraform init -backend=false -input=false && terraform validate)
+(cd modules/cloudflare-edge && terraform init -backend=false -input=false && terraform validate && terraform test)
 
 # CDK construct (aws-cdk-lib runs on Node, so Node must be on the PATH)
 pip install "./cdk[test]"

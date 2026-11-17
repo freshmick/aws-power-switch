@@ -58,6 +58,8 @@ jobs:
         working-directory: modules/cloudflare-edge
       - run: terraform validate
         working-directory: modules/cloudflare-edge
+      - run: terraform test
+        working-directory: modules/cloudflare-edge
 
   cdk:
     name: CDK construct pytest
