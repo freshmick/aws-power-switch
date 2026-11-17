@@ -2,7 +2,7 @@
 
 lane: mvp
 
-The package has no users yet, so a revert undoes any change here. A file matching a sensitive glob gets a second, security-minded reviewer; it does not by itself send the PR to the owner. Globs for files that don't exist yet are deliberate.
+Consumers pin a release tag, so a revert undoes any change here. A file matching a sensitive glob gets a second, security-minded reviewer; it does not by itself send the PR to the owner. Globs for files that don't exist yet are deliberate.
 
 ## sensitive
 - `app/access.mjs` - the Cloudflare Access JWT verifier: junk-token guard, signing-key cache
