@@ -34,3 +34,33 @@ export function sampleRds() {
     { id: 'other-db', state: 'available', tags: {} },
   ], { runningState: 'available' });
 }
+
+// The local server's data: groups `demo` (a stopped node, a running database) and `docs` (a stopped
+// node and a stopped database), one resource with an empty group, and one untagged.
+export function groupedEc2() {
+  return createFakeAdapter([
+    { id: 'i-0demo', name: 'demo-node', state: 'stopped', tags: { 'power-switch': 'demo' } },
+    { id: 'i-0docs', name: 'docs-node', state: 'stopped', tags: { 'power-switch': 'docs' } },
+    { id: 'i-0node', name: 'example-node', state: 'running', tags: { 'power-switch': '' } },
+    { id: 'i-0other', name: 'untagged', state: 'running', tags: {} },
+  ]);
+}
+
+export function groupedRds() {
+  return createFakeAdapter([
+    { id: 'example-db', state: 'available', tags: { 'power-switch': 'demo' } },
+    { id: 'docs-db', state: 'stopped', stoppedAt: new Date(), tags: { 'power-switch': 'docs' } },
+  ], { runningState: 'available' });
+}
+
+// Wraps an adapter so start and stop of instance `failId` reject, to try a failed action locally.
+export function failingOn(adapter, failId) {
+  const fail = (action, id) => {
+    if (id === failId) throw new Error(`injected ${action} failure for ${id}`);
+  };
+  return {
+    ...adapter,
+    async start(id) { fail('start', id); return adapter.start(id); },
+    async stop(id) { fail('stop', id); return adapter.stop(id); },
+  };
+}

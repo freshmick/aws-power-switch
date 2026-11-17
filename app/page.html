@@ -6,7 +6,9 @@
   <title>Power switch</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th:nth-child(1) { width: 45%; }
+    th:nth-child(2) { width: 35%; }
     th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; vertical-align: top; }
     .state { font-weight: 600; }
     .running { color: #1f7a1f; }
@@ -15,22 +17,26 @@
     .note { font-size: 0.85rem; color: #555; margin-top: 0.25rem; }
     .error { color: #b00020; }
     button { margin-right: 0.25rem; }
+    section { margin-top: 1.5rem; }
+    .group-head { display: flex; align-items: baseline; gap: 1rem; }
+    .group-head h2 { font-size: 1.1rem; margin: 0; }
   </style>
 </head>
 <body>
   <h1>Power switch</h1>
   <p>Start the database before the node; stop the node before the database.</p>
   <p id="error" class="error" hidden></p>
-  <table>
-    <thead><tr><th>Resource</th><th>State</th><th></th></tr></thead>
-    <tbody id="resources"><tr><td colspan="3">Loading…</td></tr></tbody>
-  </table>
+  <div id="groups"><p>Loading…</p></div>
 
   <script>
     const REFRESH_MS = 5000;
     const SETTLED = ['running', 'stopped'];
     const LABELS = { ec2: 'EC2 node', rds: 'RDS database' };
+    const UNGROUPED = 'ungrouped';
     let timer;
+    // The banner shows the last action's failures and the last load's failure, if any.
+    let actionError = '';
+    let loadError = '';
 
     async function refresh() {
       clearTimeout(timer);
@@ -39,31 +45,92 @@
         if (!response.ok) throw new Error(`Loading failed (${response.status})`);
         const { resources } = await response.json();
         render(resources);
-        showError('');
+        showLoadError('');
         if (resources.some((r) => !SETTLED.includes(r.state))) timer = setTimeout(refresh, REFRESH_MS);
       } catch (error) {
-        showError(error.message);
+        showLoadError(error.message);
       }
+    }
+
+    // Throws with the server's error message when the start/stop is not accepted.
+    async function post(resource, action) {
+      const path = `/api/resources/${resource.type}/${encodeURIComponent(resource.id)}/${action}`;
+      const response = await fetch(path, { method: 'POST' });
+      if (!response.ok) throw new Error((await response.json()).error || `${action} failed`);
     }
 
     async function change(resource, action) {
       try {
-        const path = `/api/resources/${resource.type}/${encodeURIComponent(resource.id)}/${action}`;
-        const response = await fetch(path, { method: 'POST' });
-        if (!response.ok) throw new Error((await response.json()).error || `${action} failed`);
+        await post(resource, action);
+        showActionError('');
       } catch (error) {
-        showError(error.message);
+        showActionError(error.message);
       }
       refresh();
     }
 
+    // Starts every stopped resource in the group, or stops every running one, all at once.
+    // A failure does not hold back the others; the banner names each one that failed.
+    async function changeAll(resources, action) {
+      const targets = resources.filter((r) => r.state === (action === 'start' ? 'stopped' : 'running'));
+      const failures = await Promise.all(targets.map((r) => post(r, action).then(
+        () => null,
+        (error) => `${r.name}: ${action} failed: ${error.message}`,
+      )));
+      showActionError(failures.filter(Boolean).join('; '));
+      refresh();
+    }
+
     function render(resources) {
-      const body = document.getElementById('resources');
-      body.replaceChildren();
+      const container = document.getElementById('groups');
+      container.replaceChildren();
       if (!resources.length) {
-        body.append(row([cell('No resources tagged for the power switch.', 3)]));
+        const empty = document.createElement('p');
+        empty.textContent = 'No resources tagged for the power switch.';
+        container.append(empty);
         return;
       }
+      for (const [name, members] of groupByName(resources)) container.append(groupSection(name, members));
+    }
+
+    // [name, resources] pairs, named groups alphabetically, the empty group last as "ungrouped".
+    function groupByName(resources) {
+      const groups = new Map();
+      for (const resource of resources) {
+        const name = resource.group || '';
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(resource);
+      }
+      const names = [...groups.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b));
+      if (groups.has('')) names.push('');
+      return names.map((name) => [name, groups.get(name)]);
+    }
+
+    function groupSection(name, resources) {
+      const section = document.createElement('section');
+      const head = document.createElement('div');
+      head.className = 'group-head';
+      const title = document.createElement('h2');
+      title.textContent = name || UNGROUPED;
+      const actions = document.createElement('div');
+      actions.append(
+        button('Start all', !resources.some((r) => r.state === 'stopped'), () => changeAll(resources, 'start')),
+        button('Stop all', !resources.some((r) => r.state === 'running'), () => changeAll(resources, 'stop')),
+      );
+      head.append(title, actions);
+      section.append(head, resourceTable(resources));
+      return section;
+    }
+
+    function resourceTable(resources) {
+      const table = document.createElement('table');
+      const headRow = row(['Resource', 'State', ''].map((text) => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        return th;
+      }));
+      table.createTHead().append(headRow);
+      const body = table.createTBody();
       for (const resource of resources) {
         const name = cell(`${resource.name} (${LABELS[resource.type] || resource.type})`);
         const state = cell(resource.state);
@@ -76,6 +143,7 @@
         );
         body.append(row([name, state, actions]));
       }
+      return table;
     }
 
     function autoStartNote(resource) {
@@ -93,10 +161,9 @@
       return tr;
     }
 
-    function cell(text = '', colSpan = 1) {
+    function cell(text = '') {
       const td = document.createElement('td');
       td.textContent = text;
-      td.colSpan = colSpan;
       return td;
     }
 
@@ -108,10 +175,20 @@
       return b;
     }
 
-    function showError(message) {
+    function showActionError(message) {
+      actionError = message;
+      showError();
+    }
+
+    function showLoadError(message) {
+      loadError = message;
+      showError();
+    }
+
+    function showError() {
       const el = document.getElementById('error');
-      el.textContent = message;
-      el.hidden = !message;
+      el.textContent = [actionError, loadError].filter(Boolean).join('; ');
+      el.hidden = !el.textContent;
     }
 
     refresh();
