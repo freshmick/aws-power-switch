@@ -1,0 +1,4 @@
+# Terraform working files and the module's build output
+.terraform/
+.terraform.lock.hcl
+.build/
