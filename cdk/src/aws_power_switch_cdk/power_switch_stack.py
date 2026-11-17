@@ -24,7 +24,7 @@ class PowerSwitchStack(Stack):
         access_aud_parameter: str,
         function_url_parameter: str,
         tag_key: str = "power-switch",
-        reserved_concurrency: int = 2,
+        reserved_concurrency: int | None = 2,
         log_retention_days: int = 14,
         **stack_kwargs: Any,
     ) -> None:

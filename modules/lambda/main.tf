@@ -39,6 +39,7 @@ resource "aws_lambda_function" "this" {
   source_code_hash = data.archive_file.app.output_base64sha256
 
   # The Function URL is public: cap concurrency so a flood can't use up the account's shared pool.
+  # null reserves no concurrency.
   reserved_concurrent_executions = var.reserved_concurrency
 
   environment {

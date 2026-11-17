@@ -27,7 +27,7 @@ class PowerSwitch(Construct):
         access_aud_parameter: str,
         function_url_parameter: str,
         tag_key: str = "power-switch",
-        reserved_concurrency: int = 2,
+        reserved_concurrency: int | None = 2,
         log_retention_days: int = 14,
     ) -> None:
         super().__init__(scope, construct_id)
@@ -75,6 +75,7 @@ class PowerSwitch(Construct):
             timeout=Duration.seconds(15),
             code=lambda_.Code.from_asset(str(APP_DIR)),
             # The Function URL is public: cap concurrency so a flood can't use up the account's pool.
+            # None reserves no concurrency.
             reserved_concurrent_executions=reserved_concurrency,
             environment={
                 "TAG_KEY": tag_key,
