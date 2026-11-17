@@ -24,14 +24,13 @@
 </head>
 <body>
   <h1>Power switch</h1>
-  <p>Start the database before the node; stop the node before the database.</p>
   <p id="error" class="error" hidden></p>
   <div id="groups"><p>Loading…</p></div>
 
   <script>
     const REFRESH_MS = 5000;
     const SETTLED = ['running', 'stopped'];
-    const LABELS = { ec2: 'EC2 node', rds: 'RDS database' };
+    const LABELS = { ec2: 'EC2 instance', rds: 'RDS database' };
     const UNGROUPED = 'ungrouped';
     let timer;
     // The banner shows the last action's failures and the last load's failure, if any.
