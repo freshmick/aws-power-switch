@@ -81,7 +81,7 @@ The examples use the modules and the package from your clone of this repo, so th
 
 ### Terraform standalone
 
-Needs Terraform, AWS credentials, and an existing Access identity provider in Cloudflare Zero Trust.
+Needs Terraform, AWS credentials, a Cloudflare API token with [these permissions](#cloudflare-api-token-permissions), and an existing Access identity provider in Cloudflare Zero Trust.
 
 ```sh
 git clone https://github.com/freshmick/aws-power-switch.git
@@ -103,7 +103,7 @@ The root has no backend block, so its state stays in a local `terraform.tfstate`
 
 ### CDK standalone
 
-Needs Python 3.10 or later, Node 22, the [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html), Terraform, an AWS account [bootstrapped for CDK](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html), and an existing Access identity provider in Cloudflare Zero Trust.
+Needs Python 3.10 or later, Node 22, the [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html), Terraform, an AWS account [bootstrapped for CDK](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html), a Cloudflare API token with [these permissions](#cloudflare-api-token-permissions), and an existing Access identity provider in Cloudflare Zero Trust.
 
 ```sh
 git clone https://github.com/freshmick/aws-power-switch.git
@@ -227,6 +227,18 @@ module "power_switch_edge" {
 The edge module needs both the `cloudflare` provider (`~> 5.0`) and the `aws` provider (`~> 6.0`); point the `aws` provider at the Lambda's account and region, since that's where the parameters live. It creates a Worker on `power_hostname` (with its DNS record) and an Access application that allows exactly your `allowed_idps` and `policy_ids`. It creates no Access policy of its own.
 
 Then tag some instances ([tag contract](#the-tag-contract)) and open `https://power.example.com`.
+
+#### Cloudflare API token permissions
+
+The `cloudflare` provider reads the token from `CLOUDFLARE_API_TOKEN`. Create a [custom token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) with these permissions, for your account and the zone of `power_hostname`:
+
+| Scope | Permission | Access | What needs it |
+| --- | --- | --- | --- |
+| Account | Workers Scripts | Edit | The Worker script and its custom domain on `power_hostname`. |
+| Account | Access: Apps and Policies | Edit | The Access application; in the standalone examples, also the Access policy. |
+| Account | Access: Organizations, Identity Providers, and Groups | Read | Standalone examples only: looking up your Access team domain. |
+| Zone | Zone | Read | Looking up the zone ID of `zone_name`. |
+| Zone | Workers Routes | Edit | The Worker's custom domain on `power_hostname`. |
 
 ### Inputs
 
