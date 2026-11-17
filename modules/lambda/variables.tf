@@ -40,9 +40,10 @@ variable "function_url_parameter" {
 }
 
 variable "reserved_concurrency" {
-  description = "Maximum concurrent invocations; the Function URL is public, so this caps what a flood can use of the account's pool."
+  description = "Maximum concurrent invocations; the Function URL is public, so this caps what a flood can use of the account's pool. null reserves no concurrency."
   type        = number
   default     = 2
+  nullable    = true
 }
 
 variable "log_retention_days" {

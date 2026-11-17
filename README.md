@@ -252,8 +252,10 @@ The `cloudflare` provider reads the token from `CLOUDFLARE_API_TOKEN`. Create a 
 | `access_aud_parameter` | yes | | Name of the SSM parameter holding the Access application's audience (the edge module writes it). Read only. |
 | `function_url_parameter` | yes | | Name of the SSM parameter this module creates with the Function URL. |
 | `tag_key` | no | `"power-switch"` | Only EC2 and RDS instances carrying this tag key are listed and switchable. |
-| `reserved_concurrency` | no | `2` | Maximum concurrent invocations; caps what a flood on the public Function URL can use. |
+| `reserved_concurrency` | no | `2` | Maximum concurrent invocations; caps what a flood on the public Function URL can use. `null` (Terraform) or `None` (CDK) reserves no concurrency: see the note below. |
 | `log_retention_days` | no | `14` | How long the function's logs are kept, in days. |
+
+> **Low concurrency limit?** Accounts with a low Lambda concurrency limit (new accounts often have 10) can reject the deploy with "decreases account's UnreservedConcurrentExecution below its minimum value". This is taken from the Lambda documentation and was not reproduced. The workaround is to set `reserved_concurrency` to `null` (Terraform) or `None` (CDK): the function then has no reserved concurrency, so a flood on the public URL is no longer capped.
 
 **`modules/cloudflare-edge`** (all required, except that you set exactly one of `function_url` and `function_url_parameter`)
 
