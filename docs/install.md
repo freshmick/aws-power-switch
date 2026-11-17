@@ -43,7 +43,7 @@ aws ssm put-parameter --name /example/access_team_domain --type String \
 
 ```hcl
 module "power_switch" {
-  source = "git::https://github.com/freshmick/aws-power-switch.git//modules/lambda?ref=v0.1.0"
+  source = "git::https://github.com/freshmick/aws-power-switch.git//modules/lambda?ref=v0.1.1"
 
   name_prefix                  = "example"
   power_hostname               = "power.example.com"
@@ -58,7 +58,7 @@ If the edge module lives in the same root module, pass it `function_url = module
 ## 2b. AWS side with CDK (Python)
 
 ```sh
-pip install "aws-power-switch-cdk @ git+https://github.com/freshmick/aws-power-switch.git@v0.1.0#subdirectory=cdk"
+pip install "aws-power-switch-cdk @ git+https://github.com/freshmick/aws-power-switch.git@v0.1.1#subdirectory=cdk"
 ```
 
 ```python
@@ -83,7 +83,7 @@ To deploy it as its own stack instead, use `PowerSwitchStack(app, "PowerSwitch",
 
 ```hcl
 module "power_switch_edge" {
-  source = "git::https://github.com/freshmick/aws-power-switch.git//modules/cloudflare-edge?ref=v0.1.0"
+  source = "git::https://github.com/freshmick/aws-power-switch.git//modules/cloudflare-edge?ref=v0.1.1"
 
   account_id             = "0123456789abcdef0123456789abcdef"
   name_prefix            = "example"
