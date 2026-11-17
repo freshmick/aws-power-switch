@@ -39,7 +39,7 @@ flowchart LR
 | **Key** (`tag_key`, default `power-switch`) | Marks the instance as switchable. Only instances carrying this key are listed, and only they can be started or stopped. The key alone decides access; IAM and the app both check it. |
 | **Value** | Names the instance's group. The page shows one section per group, sorted by name, with an empty value listed last as "ungrouped"; the list API returns it as `group`. It is for display only and grants nothing. |
 
-- Only **EC2 instances** and **RDS DB instances** are ever listed or actionable. Other resource types are ignored even when tagged.
+- Only **EC2 instances** and **RDS DB instances** are ever listed or actionable. Other resource types are ignored even when tagged. DB instances that belong to a cluster (Aurora, Multi-AZ DB clusters) are not supported: they are never listed, even when tagged.
 - Untagging an instance takes it out of the switch's reach at once.
 - Anyone the install's Access policies let in can switch every tagged instance in that account; there are no per-group permissions.
 
