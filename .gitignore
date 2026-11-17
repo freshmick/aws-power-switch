@@ -2,3 +2,5 @@
 .terraform/
 .terraform.lock.hcl
 .build/
+# Development dependencies (see package.json)
+node_modules/

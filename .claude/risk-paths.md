@@ -12,10 +12,12 @@ Consumers pin a release tag, so a revert undoes any change here. A file matching
 - `modules/lambda/iam.tf` - the Lambda's IAM policy in the Terraform lambda module: start/stop only on tagged resources
 - `cdk/src/aws_power_switch_cdk/iam.py` - the Lambda's IAM policy in the CDK construct: start/stop only on tagged resources
 - `.github/workflows/**` - CI, the checks themselves
+- `.github/actions/**` - CI, the steps the checks share
 
 ## docs and tests
 - `README.md`
 - `docs/**`
 - `app/tests/**`
 - `cdk/tests/**`
+- `tests/emulator/**`
 - `modules/cloudflare-edge/worker.test.mjs`
