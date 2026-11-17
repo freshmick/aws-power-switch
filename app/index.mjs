@@ -20,7 +20,7 @@ async function buildApp() {
     verifyAccessToken: createAccessVerifier({ teamDomain: config.teamDomain, aud: config.accessAud }),
     resources: createResources({
       ec2: createEc2Adapter(new EC2Client(), config.tagKey),
-      rds: createRdsAdapter(new RDSClient()),
+      rds: createRdsAdapter(new RDSClient(), config.tagKey),
       tagKey: config.tagKey,
     }),
     page,

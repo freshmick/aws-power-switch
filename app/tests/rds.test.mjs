@@ -22,10 +22,15 @@ const { createRdsAdapter } = await import('../rds.mjs');
 
 const TAG = 'power-switch';
 
-// A fake RDS client that answers DescribeDBInstances with one page of `dbInstances`.
-function fakeClient(dbInstances) {
+// A fake RDS client that answers DescribeDBInstances with one page of `dbInstances`. When
+// `eventLookups` is given, it also answers DescribeEvents with no events and records each input.
+function fakeClient(dbInstances, eventLookups) {
   return {
     async send(command) {
+      if (eventLookups && command.constructor.name === 'DescribeEventsCommand') {
+        eventLookups.push(command.input);
+        return { Events: [] };
+      }
       assert.equal(command.constructor.name, 'DescribeDBInstancesCommand');
       return { DBInstances: dbInstances };
     },
@@ -56,4 +61,14 @@ test('leaves out a DB instance that belongs to a cluster', async () => {
     },
   ]));
   assert.deepEqual((await rds.listInstances()).map((instance) => instance.id), ['plain-db']);
+});
+
+test('looks up the stop time only for a stopped DB instance that carries the tag key', async () => {
+  const eventLookups = [];
+  const rds = createRdsAdapter(fakeClient([
+    { DBInstanceIdentifier: 'tagged-db', DBInstanceStatus: 'stopped', TagList: [{ Key: TAG, Value: '' }] },
+    { DBInstanceIdentifier: 'untagged-db', DBInstanceStatus: 'stopped', TagList: [{ Key: 'Name', Value: 'Other' }] },
+  ], eventLookups), TAG);
+  await rds.listInstances();
+  assert.deepEqual(eventLookups.map((input) => input.SourceIdentifier), ['tagged-db']);
 });

@@ -1,5 +1,6 @@
 // Thin RDS adapter over AWS SDK v3 (shipped with the Lambda runtime). DescribeDBInstances has no
 // tag filter, so it returns every instance with its tags; resources.mjs keeps the tagged ones.
+// The tag key is only used here to skip the stop-time lookup for instances the switch won't show.
 import {
   DescribeDBInstancesCommand,
   DescribeEventsCommand,
@@ -13,7 +14,7 @@ import {
 const STOPPED_EVENT = /^(the )?db instance (has been )?stopped\.?$/i;
 const EVENT_LOOKBACK_MINUTES = 8 * 24 * 60;
 
-export function createRdsAdapter(client) {
+export function createRdsAdapter(client, tagKey) {
   async function stoppedAt(id) {
     const { Events = [] } = await client.send(new DescribeEventsCommand({
       SourceType: 'db-instance',
@@ -35,9 +36,10 @@ export function createRdsAdapter(client) {
         instances.push(...(page.DBInstances ?? []).filter(isStandalone).map(toInstance));
         Marker = page.Marker;
       } while (Marker);
-      for (const instance of instances) {
-        if (instance.state === 'stopped') instance.stoppedAt = await stoppedAt(instance.id);
-      }
+      const stopped = instances.filter((instance) => instance.state === 'stopped' && tagKey in instance.tags);
+      await Promise.all(stopped.map(async (instance) => {
+        instance.stoppedAt = await stoppedAt(instance.id);
+      }));
       return instances;
     },
     async start(id) {
