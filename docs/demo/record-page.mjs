@@ -1,5 +1,5 @@
 // Records docs/demo/page.gif: the power switch page, served by the local dev server (sample data
-// only, no AWS), while a group is started and stopped. How to run it: see README.md in this folder.
+// only, no AWS), while a group is started and its instance stopped again. How to run it: see README.md in this folder.
 //
 // playwright-core is resolved from the directory you run this from, so the repo gains no dependency.
 import { spawn, execFileSync } from 'node:child_process';
@@ -14,7 +14,9 @@ const serverScript = join(here, '../../app/dev/serve.mjs');
 const output = join(here, 'page.gif');
 const port = process.env.PORT || '8799';
 const group = 'demo';
-const VIEWPORT = { width: 800, height: 600 };
+const lastGroupInFrame = 'docs';
+const WIDTH = 800;
+const FRAME_PADDING = 12;
 const GIF_WIDTH = 1080;
 
 const { chromium } = createRequire(join(process.cwd(), 'noop.js'))('playwright-core');
@@ -34,7 +36,7 @@ async function addPointer(page) {
     const pointer = document.createElement('div');
     pointer.id = 'demo-pointer';
     pointer.innerHTML = '<svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 2l14 8-6 1.5L8.5 18z" fill="#1a1a1a" stroke="#fff" stroke-width="1.5"/></svg>';
-    pointer.style.cssText = 'position:fixed;left:600px;top:300px;z-index:9;pointer-events:none;transition:transform .1s';
+    pointer.style.cssText = 'position:fixed;left:560px;top:240px;z-index:9;pointer-events:none;transition:transform .1s';
     document.body.append(pointer);
   });
 }
@@ -74,27 +76,29 @@ function createFilm(page, dir) {
   return { frames, shot, click };
 }
 
-async function record(page, film) {
-  // Hold the first list back briefly so the recording opens on the page loading.
-  let release;
-  const held = new Promise((resolve) => { release = resolve; });
-  await page.route('**/api/resources', async (route) => { await held; await route.continue(); }, { times: 1 });
-  await page.goto(`http://localhost:${port}/`, { waitUntil: 'domcontentloaded' });
-  await addPointer(page);
-  await film.shot(700);
-  release();
+const groupSection = (page, name) => page.locator('section', { has: page.getByRole('heading', { name, exact: true }) });
 
-  const section = page.locator('section', { has: page.getByRole('heading', { name: group, exact: true }) });
-  const states = section.locator('td.state');
+// Shrinks the window so the frame ends just under the last group to show.
+async function frameDownTo(page, section) {
+  const box = await section.boundingBox();
+  await page.setViewportSize({ width: WIDTH, height: Math.ceil(box.y + box.height) + FRAME_PADDING });
+}
+
+async function record(page, film) {
+  await page.goto(`http://localhost:${port}/`);
+  const section = groupSection(page, group);
+  const instanceRow = section.locator('tr', { hasText: 'EC2 instance' });
   await section.waitFor();
+  await frameDownTo(page, groupSection(page, lastGroupInFrame));
+  await addPointer(page);
   await film.shot(1800);
 
   await film.click(section.getByRole('button', { name: 'Start all' }));
-  await states.filter({ hasText: 'running' }).nth(1).waitFor();
+  await instanceRow.locator('td.state', { hasText: 'running' }).waitFor();
   await film.shot(2600);
 
-  await film.click(section.getByRole('button', { name: 'Stop all' }));
-  await states.filter({ hasText: 'stopped' }).nth(1).waitFor();
+  await film.click(instanceRow.getByRole('button', { name: 'Stop', exact: true }));
+  await instanceRow.locator('td.state', { hasText: 'stopped' }).waitFor();
   await film.shot(3000);
 }
 
@@ -114,7 +118,7 @@ let browser;
 try {
   await ready;
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 2, locale: 'en-US', timezoneId: 'UTC' });
+  const context = await browser.newContext({ viewport: { width: WIDTH, height: 600 }, deviceScaleFactor: 2, locale: 'en-US', timezoneId: 'UTC' });
   const page = await context.newPage();
   const film = createFilm(page, dir);
   await record(page, film);
