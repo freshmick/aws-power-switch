@@ -23,7 +23,7 @@ export function createFakeAdapter(instances, { runningState = 'running' } = {}) 
 
 export function sampleEc2() {
   return createFakeAdapter([
-    { id: 'i-0node', name: 'example-node', state: 'running', tags: { 'power-switch': 'true', Name: 'example-node' } },
+    { id: 'i-0node', name: 'example-instance', state: 'running', tags: { 'power-switch': 'true', Name: 'example-instance' } },
     { id: 'i-0other', name: 'untagged', state: 'running', tags: { Name: 'untagged' } },
   ]);
 }
@@ -35,13 +35,13 @@ export function sampleRds() {
   ], { runningState: 'available' });
 }
 
-// The local server's data: groups `demo` (a stopped node, a running database) and `docs` (a stopped
-// node and a stopped database), one resource with an empty group, and one untagged.
+// The local server's data: groups `demo` (a stopped instance, a running database) and `docs` (a stopped
+// instance and a stopped database), one resource with an empty group, and one untagged.
 export function groupedEc2() {
   return createFakeAdapter([
-    { id: 'i-0demo', name: 'demo-node', state: 'stopped', tags: { 'power-switch': 'demo' } },
-    { id: 'i-0docs', name: 'docs-node', state: 'stopped', tags: { 'power-switch': 'docs' } },
-    { id: 'i-0node', name: 'example-node', state: 'running', tags: { 'power-switch': '' } },
+    { id: 'i-0demo', name: 'demo-instance', state: 'stopped', tags: { 'power-switch': 'demo' } },
+    { id: 'i-0docs', name: 'docs-instance', state: 'stopped', tags: { 'power-switch': 'docs' } },
+    { id: 'i-0node', name: 'example-instance', state: 'running', tags: { 'power-switch': '' } },
     { id: 'i-0other', name: 'untagged', state: 'running', tags: {} },
   ]);
 }
