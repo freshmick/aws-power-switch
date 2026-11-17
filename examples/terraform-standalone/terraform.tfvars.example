@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars and replace the example values.
+
+# AWS region for the Lambda and its SSM parameters.
+region = "us-east-1"
+
+# Cloudflare dashboard: Account home, then the account's menu, Copy account ID. Also shown in the
+# zone's Overview page, in the API section on the right.
+account_id = "example"
+
+# The zone (domain) the power hostname belongs to, as listed in the Cloudflare dashboard.
+zone_name = "example.com"
+
+# The hostname the page is served on, inside zone_name. The example creates its DNS record.
+power_hostname = "power.example.com"
+
+# Prefix for resource and SSM parameter names. Lowercase letters, digits and hyphens.
+name_prefix = "example"
+
+# Cloudflare Zero Trust dashboard: Settings, Authentication, Login methods. Open a login method
+# (e.g. One-time PIN); its ID is in the page URL. Or list them with the API:
+# GET https://api.cloudflare.com/client/v4/accounts/<account_id>/access/identity_providers
+# You can list several.
+identity_provider_ids = ["example"]
+
+# Email addresses allowed to sign in. Must not be empty.
+allowed_emails = ["someone@example.com"]

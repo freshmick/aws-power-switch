@@ -55,24 +55,51 @@ Deploy the power switch as its own stack from a ready-made example in this repo,
 
 ```mermaid
 flowchart TB
-    subgraph standalone [Standalone with CDK]
-        direction TB
-        s1[Fill in cdk.json] --> s2[cdk deploy a PowerSwitchStack]
-        s2 -- Function URL parameter --> s3[terraform apply in edge]
-    end
     subgraph embedded [Inside your stack]
         direction TB
         e1[Store the team domain in SSM] --> e2[Add PowerSwitch or modules/lambda]
-        e2 -- Function URL parameter --> e3[Apply modules/cloudflare-edge]
+        e2 -- Function URL or its parameter --> e3[Apply modules/cloudflare-edge]
+    end
+    subgraph cdkstandalone [Standalone with CDK]
+        direction TB
+        c1[Fill in cdk.json] --> c2[cdk deploy a PowerSwitchStack]
+        c2 -- Function URL parameter --> c3[terraform apply in edge]
+    end
+    subgraph tfstandalone [Standalone with Terraform]
+        direction TB
+        t1[Fill in terraform.tfvars] --> t2[One terraform apply]
+        t2 --> t3[Lambda, Worker and Access application]
     end
 ```
 
 | | Terraform | CDK (Python) |
 | --- | --- | --- |
-| **Standalone**, as its own stack | Coming soon. Until then, use the modules as in [Install](#install). | [`examples/cdk-standalone`](examples/cdk-standalone): `cdk deploy` a `PowerSwitchStack` built from `cdk.json`, then `terraform apply` in its [`edge/`](examples/cdk-standalone/edge) folder. The edge apply also stores your Access team domain and creates the Access policy from `allowed_emails`. |
-| **Inside your stack** | `modules/lambda`, then `modules/cloudflare-edge`: [Install](#install), steps 1, 2a and 3. | The `PowerSwitch` construct in your stack, then `modules/cloudflare-edge`: [Install](#install), steps 1, 2b and 3. |
+| **Standalone**, as its own stack | [`examples/terraform-standalone`](examples/terraform-standalone): one `terraform apply` creates the Lambda, the Worker and the Access application, and also stores your Access team domain and creates the Access policy from `allowed_emails`. | [`examples/cdk-standalone`](examples/cdk-standalone): `cdk deploy` a `PowerSwitchStack` built from `cdk.json`, then `terraform apply` in its [`edge/`](examples/cdk-standalone/edge) folder. The edge apply also stores your Access team domain and creates the Access policy from `allowed_emails`. |
+| **Inside your stack** | `modules/lambda`, then `modules/cloudflare-edge`: [Install](#install), steps 1, 2a and 3. In a single root, pass the edge `function_url` and one `terraform apply` does both. | The `PowerSwitch` construct in your stack, then `modules/cloudflare-edge`: [Install](#install), steps 1, 2b and 3. |
 
 The examples use the modules and the package from your clone of this repo, so they deploy the code you have checked out. The snippets under [Install](#install) pin the `v0.1.0` release instead.
+
+### Terraform standalone
+
+Needs Terraform, AWS credentials, and an existing Access identity provider in Cloudflare Zero Trust.
+
+```sh
+git clone https://github.com/freshmick/aws-power-switch.git
+cd aws-power-switch/examples/terraform-standalone
+cp terraform.tfvars.example terraform.tfvars   # fill it in; it says where to find each ID
+export CLOUDFLARE_API_TOKEN=...
+terraform init
+terraform apply
+```
+
+| Input | What it is |
+| --- | --- |
+| `region` | AWS region for the Lambda and its SSM parameters. |
+| `account_id`, `zone_name`, `power_hostname`, `name_prefix` | Your Cloudflare account and the hostname of the page. The SSM parameters are named `/<name_prefix>/power-switch/...`. |
+| `identity_provider_ids` | IDs of existing Access identity providers to sign in with. |
+| `allowed_emails` | Who may sign in. Must not be empty. |
+
+The root has no backend block, so its state stays in a local `terraform.tfstate`. For real use, configure a remote [S3 backend](https://developer.hashicorp.com/terraform/language/backend/s3).
 
 ### CDK standalone
 
@@ -154,7 +181,7 @@ module "power_switch" {
 }
 ```
 
-If the edge module lives in the same root module, pass it `function_url = module.power_switch.function_url` instead of `function_url_parameter` and a single `terraform apply` does both. With `function_url_parameter`, apply this one first with `terraform apply -target=module.power_switch`, then run `terraform apply`.
+If the edge module lives in the same root module, pass it `function_url = module.power_switch.function_url` instead of `function_url_parameter` and a single `terraform apply` does both, as [`examples/terraform-standalone`](examples/terraform-standalone) does. With `function_url_parameter`, apply this one first with `terraform apply -target=module.power_switch`, then run `terraform apply`.
 
 ### 2b. AWS side with CDK (Python)
 
@@ -363,6 +390,9 @@ node --test modules/cloudflare-edge/worker.test.mjs
 pip install "./cdk[test]"
 (cd cdk && pytest)
 
+# Terraform standalone example
+(cd examples/terraform-standalone && terraform fmt -check -diff -recursive && terraform init -backend=false && terraform validate && terraform test)
+
 # CDK standalone example: synth, then its edge root
 pip install ./cdk
 (cd examples/cdk-standalone && python app.py)
@@ -380,7 +410,7 @@ pip install ./cdk
 | `modules/lambda/` | Terraform module for the AWS side. |
 | `modules/cloudflare-edge/` | Terraform module for the Cloudflare side, and the Worker. |
 | `cdk/` | Python CDK construct `PowerSwitch`; ships `app/` as package data. |
-| `examples/` | Ready-to-run examples that deploy the switch as its own stack, starting with `cdk-standalone/`. |
+| `examples/` | Ready-to-run examples that deploy the switch as its own stack, [`terraform-standalone/`](examples/terraform-standalone) and [`cdk-standalone/`](examples/cdk-standalone). |
 | `docs/adr/` | Design decisions, starting with [0001 Package design](docs/adr/0001-package-design.md). |
 
 </details>
