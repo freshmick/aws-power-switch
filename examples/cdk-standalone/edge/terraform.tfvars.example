@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars and fill in. The parameter names and the hostname must match ../cdk.json.
+
+# Cloudflare dashboard: the account's home page, account menu (the three dots next to the account
+# name) > Copy account ID. Also shown in the API section of any zone's Overview page.
+account_id = "0123456789abcdef0123456789abcdef"
+
+# A zone (domain) in that account, as listed on the account's home page.
+zone_name      = "example.com"
+power_hostname = "power.example.com"
+name_prefix    = "example"
+
+access_team_domain_parameter = "/example/access_team_domain"
+access_aud_parameter         = "/example/power/access_aud"
+function_url_parameter       = "/example/power/function_url"
+
+# Zero Trust dashboard > Settings > Authentication > Login methods (Integrations > Identity
+# providers in newer layouts): open the provider; its ID is the UUID in the page URL.
+identity_provider_ids = ["00000000-0000-0000-0000-000000000000"]
+
+# Who may sign in. Must not be empty.
+allowed_emails = ["someone@example.com"]

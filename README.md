@@ -22,7 +22,7 @@ flowchart LR
 
 <p align="center"><img src="docs/screenshot.png" alt="The power switch page with groups demo, docs and ungrouped, each with Start all and Stop all, listing EC2 nodes and RDS databases with their state and Start and Stop buttons" width="600"></p>
 
-**Contents:** [Tag contract](#the-tag-contract) · [Install](#install) · [Security model](#security-model) · [Why a Worker, not a tunnel](#why-a-worker-and-not-a-tunnel) · [Local development](#local-development)
+**Contents:** [Tag contract](#the-tag-contract) · [Standalone or inside your stack](#standalone-or-inside-your-stack) · [Install](#install) · [Security model](#security-model) · [Why a Worker, not a tunnel](#why-a-worker-and-not-a-tunnel) · [Local development](#local-development)
 
 ## The tag contract
 
@@ -48,6 +48,60 @@ aws ec2 create-tags --resources i-0123456789abcdef0 --tags Key=power-switch,Valu
 aws rds add-tags-to-resource --resource-name arn:aws:rds:us-east-1:111122223333:db:example-db \
   --tags Key=power-switch,Value=analytics
 ```
+
+## Standalone or inside your stack
+
+Deploy the power switch as its own stack from a ready-made example in this repo, or add it to a stack you already have. Either way you get the same Lambda, Worker and Access application.
+
+```mermaid
+flowchart TB
+    subgraph standalone [Standalone with CDK]
+        direction TB
+        s1[Fill in cdk.json] --> s2[cdk deploy a PowerSwitchStack]
+        s2 -- Function URL parameter --> s3[terraform apply in edge]
+    end
+    subgraph embedded [Inside your stack]
+        direction TB
+        e1[Store the team domain in SSM] --> e2[Add PowerSwitch or modules/lambda]
+        e2 -- Function URL parameter --> e3[Apply modules/cloudflare-edge]
+    end
+```
+
+| | Terraform | CDK (Python) |
+| --- | --- | --- |
+| **Standalone**, as its own stack | Coming soon. Until then, use the modules as in [Install](#install). | [`examples/cdk-standalone`](examples/cdk-standalone): `cdk deploy` a `PowerSwitchStack` built from `cdk.json`, then `terraform apply` in its [`edge/`](examples/cdk-standalone/edge) folder. The edge apply also stores your Access team domain and creates the Access policy from `allowed_emails`. |
+| **Inside your stack** | `modules/lambda`, then `modules/cloudflare-edge`: [Install](#install), steps 1, 2a and 3. | The `PowerSwitch` construct in your stack, then `modules/cloudflare-edge`: [Install](#install), steps 1, 2b and 3. |
+
+The examples use the modules and the package from your clone of this repo, so they deploy the code you have checked out. The snippets under [Install](#install) pin the `v0.1.0` release instead.
+
+### CDK standalone
+
+Needs Python 3.10 or later, Node 22, the [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html), Terraform, an AWS account [bootstrapped for CDK](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html), and an existing Access identity provider in Cloudflare Zero Trust.
+
+```sh
+git clone https://github.com/freshmick/aws-power-switch.git
+cd aws-power-switch/examples/cdk-standalone
+pip install -r requirements.txt   # the CDK package from this clone
+
+# 1. AWS side: set your values in cdk.json, then
+cdk deploy
+
+# 2. Cloudflare side, in the same AWS account and region (AWS_REGION) as the stack
+cd edge
+cp terraform.tfvars.example terraform.tfvars   # fill it in; it says where to find each ID
+export CLOUDFLARE_API_TOKEN=...
+terraform init
+terraform apply
+```
+
+| `edge/` input | What it is |
+| --- | --- |
+| `account_id`, `zone_name`, `power_hostname`, `name_prefix` | Your Cloudflare account and the hostname of the page. `power_hostname` must match `cdk.json`. |
+| `access_team_domain_parameter`, `access_aud_parameter`, `function_url_parameter` | The SSM parameter names from `cdk.json`. The edge writes the team domain and the audience, and reads the Function URL. |
+| `identity_provider_ids` | IDs of existing Access identity providers to sign in with. |
+| `allowed_emails` | Who may sign in. Must not be empty. |
+
+The edge root has no backend block, so its state stays in a local `terraform.tfstate`. For real use, configure a remote [S3 backend](https://developer.hashicorp.com/terraform/language/backend/s3).
 
 ## Install
 
@@ -124,7 +178,7 @@ PowerSwitch(
 
 The construct takes the same inputs, with the same defaults, as the Terraform lambda module, as keyword arguments. It exposes `function` (the Lambda function) and `function_url`. Deploy the stack, then apply the edge module below with Terraform, passing it the same `function_url_parameter` and `access_aud_parameter` names.
 
-To deploy it as its own stack instead, use `PowerSwitchStack(app, "PowerSwitch", ...)`: the same keyword arguments, plus any `Stack` option such as `env` or `description`. It exposes the construct as `power_switch` and outputs the Function URL.
+To deploy it as its own stack instead, use `PowerSwitchStack(app, "PowerSwitch", ...)`: the same keyword arguments, plus any `Stack` option such as `env` or `description`. It exposes the construct as `power_switch` and outputs the Function URL. [`examples/cdk-standalone`](examples/cdk-standalone) is a ready-made app around it, see [CDK standalone](#cdk-standalone).
 
 ### 3. Cloudflare side (Terraform, for both)
 
@@ -308,6 +362,11 @@ node --test modules/cloudflare-edge/worker.test.mjs
 # CDK construct (aws-cdk-lib runs on Node, so Node must be on the PATH)
 pip install "./cdk[test]"
 (cd cdk && pytest)
+
+# CDK standalone example: synth, then its edge root
+pip install ./cdk
+(cd examples/cdk-standalone && python app.py)
+(cd examples/cdk-standalone/edge && terraform fmt -check -diff -recursive && terraform init -backend=false -input=false && terraform validate && terraform test)
 ```
 
 </details>
@@ -321,6 +380,7 @@ pip install "./cdk[test]"
 | `modules/lambda/` | Terraform module for the AWS side. |
 | `modules/cloudflare-edge/` | Terraform module for the Cloudflare side, and the Worker. |
 | `cdk/` | Python CDK construct `PowerSwitch`; ships `app/` as package data. |
+| `examples/` | Ready-to-run examples that deploy the switch as its own stack, starting with `cdk-standalone/`. |
 | `docs/adr/` | Design decisions, starting with [0001 Package design](docs/adr/0001-package-design.md). |
 
 </details>

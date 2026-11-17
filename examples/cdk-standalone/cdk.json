@@ -1,0 +1,10 @@
+{
+  "app": "python3 app.py",
+  "context": {
+    "name_prefix": "example",
+    "power_hostname": "power.example.com",
+    "access_team_domain_parameter": "/example/access_team_domain",
+    "access_aud_parameter": "/example/power/access_aud",
+    "function_url_parameter": "/example/power/function_url"
+  }
+}

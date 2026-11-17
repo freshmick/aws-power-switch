@@ -76,3 +76,32 @@ jobs:
       - run: pip install "./cdk[test]"
       - run: pytest
         working-directory: cdk
+
+  cdk-standalone-example:
+    name: CDK standalone example synth and edge validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # aws-cdk-lib's jsii runtime runs on Node.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "~1.17"
+          terraform_wrapper: false
+      - run: pip install ./cdk
+      # Synthesizes without credentials or the Node CDK CLI.
+      - run: python app.py
+        working-directory: examples/cdk-standalone
+      - run: terraform fmt -check -diff -recursive
+        working-directory: examples/cdk-standalone/edge
+      - run: terraform init -backend=false -input=false
+        working-directory: examples/cdk-standalone/edge
+      - run: terraform validate
+        working-directory: examples/cdk-standalone/edge
+      - run: terraform test
+        working-directory: examples/cdk-standalone/edge
