@@ -1,6 +1,6 @@
 [project]
 name = "aws-power-switch-cdk"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python CDK construct that deploys the power switch Lambda (app bundled as package data)."
 license = "MIT"
 requires-python = ">=3.10"
