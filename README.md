@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/freshmick/aws-power-switch)](https://github.com/freshmick/aws-power-switch/releases/latest)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 
-<p align="center"><img src="docs/demo/page.gif" alt="Animated recording of the power switch page with sample data: groups demo, docs and ungrouped, each with Start all and Stop all, listing EC2 instances and RDS databases with their state and Start and Stop buttons. Start all on the demo group turns its stopped EC2 instance to running. Stop all then stops both of the group's resources, and the stopped RDS database shows when AWS will start it again." width="560"></p>
+<p align="center"><img src="docs/demo/page.gif" alt="Animated recording of the power switch page with sample data: the groups demo and docs, each with Start all and Stop all, listing EC2 instances and RDS databases with their state and Start and Stop buttons. Start all on the demo group turns its stopped EC2 instance to running; its Stop button then stops it again. A stopped RDS database in the docs group shows when AWS will start it again." width="600"></p>
 
 ```mermaid
 flowchart LR
@@ -14,8 +14,7 @@ flowchart LR
     access --> worker[Cloudflare Worker]
     worker --> url[Lambda Function URL]
     url --> lambda[Lambda: power switch app]
-    lambda --> ec2[(EC2 instances)]
-    lambda --> rds[(RDS instances)]
+    lambda --> aws[(EC2 and RDS instances)]
 ```
 
 **Contents:** [What you get](#what-you-get) · [Instance states](#instance-states) · [Install](#install) · [Tag contract](#the-tag-contract) · [Security model](#security-model) · [Why a Worker, not a tunnel](#why-a-worker-and-not-a-tunnel) · [Local development](#local-development)
@@ -44,7 +43,6 @@ stateDiagram-v2
     starting --> running
     running --> stopping: Stop
     stopping --> stopped
-    stopped --> starting: RDS only, AWS starts it again after 7 days
 ```
 
 | The page shows | EC2 state | RDS status |
