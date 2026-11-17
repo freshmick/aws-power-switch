@@ -44,3 +44,16 @@ test('lists a plain DB instance with its id, name, state and tags', async () => 
     { id: 'example-db', name: 'Example DB', state: 'available', tags: { [TAG]: 'analytics', Name: 'Example DB' } },
   ]);
 });
+
+test('leaves out a DB instance that belongs to a cluster', async () => {
+  const rds = createRdsAdapter(fakeClient([
+    { DBInstanceIdentifier: 'plain-db', DBInstanceStatus: 'available', TagList: [{ Key: TAG, Value: '' }] },
+    {
+      DBInstanceIdentifier: 'cluster-member',
+      DBClusterIdentifier: 'example-cluster',
+      DBInstanceStatus: 'available',
+      TagList: [{ Key: TAG, Value: '' }],
+    },
+  ]));
+  assert.deepEqual((await rds.listInstances()).map((instance) => instance.id), ['plain-db']);
+});

@@ -32,7 +32,7 @@ export function createRdsAdapter(client) {
       let Marker;
       do {
         const page = await client.send(new DescribeDBInstancesCommand({ Marker }));
-        instances.push(...(page.DBInstances ?? []).map(toInstance));
+        instances.push(...(page.DBInstances ?? []).filter(isStandalone).map(toInstance));
         Marker = page.Marker;
       } while (Marker);
       for (const instance of instances) {
@@ -47,6 +47,12 @@ export function createRdsAdapter(client) {
       await client.send(new StopDBInstanceCommand({ DBInstanceIdentifier: id }));
     },
   };
+}
+
+// A cluster member (Aurora, Multi-AZ cluster) can't be started or stopped on its own: the instance
+// calls fail, only the cluster calls work. So it is left out of the listing.
+function isStandalone(db) {
+  return !db.DBClusterIdentifier;
 }
 
 function toInstance(db) {
