@@ -1,0 +1,13 @@
+{
+  "name": "aws-power-switch-dev",
+  "private": true,
+  "description": "Development dependencies only. The app in app/ has none: the AWS SDK ships with the Lambda runtime.",
+  "scripts": {
+    "test:emulator": "node --test 'tests/emulator/*.test.mjs'"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-ec2": "^3.0.0",
+    "@aws-sdk/client-rds": "^3.0.0",
+    "@aws-sdk/client-ssm": "^3.0.0"
+  }
+}

@@ -1,0 +1,68 @@
+name: Start AWS Emulator
+description: >
+  Installs AWS Emulator (https://github.com/aws/aws-emulator) on a Linux x86_64 runner, starts it
+  on 127.0.0.1, and points the AWS SDKs, the AWS CLI and Terraform at it for the rest of the job.
+
+runs:
+  using: composite
+  steps:
+    # AWS publishes no pinned-version URL, so this installs the latest LTS package. The package is
+    # only installed if it carries a good signature made by the key with the fingerprint from
+    # https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-linux.html
+    - name: Download, verify and install
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        PACKAGE_URL: https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/latest/aws-emulator_amd64.deb
+        KEY_URL: https://downloads.aws.com/keys/gpg/current.asc
+        KEY_FINGERPRINT: 98BCF336A3BE53B734E967C52E5BF49BD940F624
+      run: |
+        set -euo pipefail
+        curl -fsSLo aws-emulator.deb "$PACKAGE_URL"
+        curl -fsSLo aws-emulator.deb.sig "$PACKAGE_URL.sig"
+        curl -fsSLo aws-publishing.asc "$KEY_URL"
+        export GNUPGHOME="$(mktemp -d)"
+        gpg --batch --quiet --import aws-publishing.asc
+        # A good signature from any other key in the downloaded file must not count: the last
+        # field of gpg's VALIDSIG status line is the fingerprint of the key that signed. The
+        # status output also carries binary notation data, hence LC_ALL=C and grep -a. No -q: grep
+        # must read to the end, or gpg dies on a closed pipe and pipefail fails a good package.
+        gpg --batch --status-fd 1 --verify aws-emulator.deb.sig aws-emulator.deb \
+          | LC_ALL=C grep -a "^\[GNUPG:\] VALIDSIG .* $KEY_FINGERPRINT$" > /dev/null \
+          || { echo "::error::The package is not signed by the expected AWS key"; exit 1; }
+        sudo apt-get install -y ./aws-emulator.deb
+        aws-emulator --version
+
+    - name: Start and wait until healthy
+      shell: bash
+      env:
+        # The port tests/emulator/terraform/main.tf expects.
+        PORT: "9297"
+      run: |
+        set -euo pipefail
+        files="$HOME/.aws/emulator/$PORT"
+        nohup aws-emulator --port "$PORT" --telemetry off > "$RUNNER_TEMP/aws-emulator.log" 2>&1 &
+        for attempt in $(seq 1 30); do
+          if [ -f "$files/ca.pem" ] && curl -fsS --cacert "$files/ca.pem" "https://127.0.0.1:$PORT/__admin/health" > /dev/null; then
+            healthy=true
+            break
+          fi
+          sleep 1
+        done
+        if [ "${healthy:-false}" != true ]; then
+          echo "::error::AWS Emulator did not become healthy"
+          cat "$RUNNER_TEMP/aws-emulator.log"
+          exit 1
+        fi
+        # The settings from https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html
+        {
+          echo "AWS_ENDPOINT_URL=https://127.0.0.1:$PORT"
+          echo "AWS_SHARED_CREDENTIALS_FILE=$files/emulator_credentials"
+          echo "AWS_CONFIG_FILE=$files/config"
+          echo "AWS_CA_BUNDLE=$files/ca.pem"
+          echo "NODE_EXTRA_CA_CERTS=$files/ca.pem"
+          echo "AWS_EC2_METADATA_DISABLED=true"
+          echo "AWS_DISABLE_HOST_PREFIX_INJECTION=true"
+          echo "AWS_REGION=us-east-1"
+          echo "AWS_DEFAULT_REGION=us-east-1"
+        } >> "$GITHUB_ENV"

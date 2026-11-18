@@ -282,6 +282,19 @@ pip install ./cdk
 (cd examples/cdk-standalone/edge && terraform fmt -check -diff -recursive && terraform init -backend=false -input=false && terraform validate && terraform test)
 ```
 
+Two more CI jobs run against [AWS Emulator](https://github.com/aws/aws-emulator), a local stand-in for AWS that needs no account. They check the real SDK calls in the EC2, RDS and SSM adapters, and that the lambda module applies. The emulator does not run the app as a Lambda or evaluate IAM tag conditions the way AWS does, so they test neither. To run them, [start the emulator](https://docs.aws.amazon.com/emulator/latest/userguide/setting-up.html), [point your shell at it](https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html) (for Node, also set `NODE_EXTRA_CA_CERTS` to its `ca.pem`), then:
+
+```sh
+# Adapters against the emulator
+npm ci
+npm run test:emulator
+
+# Lambda module apply against the emulator; the second plan must show no changes
+(cd tests/emulator/terraform && terraform init -input=false && terraform apply -auto-approve -input=false && terraform plan -input=false -detailed-exitcode)
+```
+
+Both refuse to run against anything but an emulator on `127.0.0.1`.
+
 </details>
 
 <details>
@@ -292,6 +305,7 @@ pip install ./cdk
 | `app/` | The Lambda app: handler, Access verifier, origin check, EC2 and RDS adapters, and the page. Tests in `app/tests/`, dev server in `app/dev/`. |
 | `modules/lambda/` | Terraform module for the AWS side. |
 | `modules/cloudflare-edge/` | Terraform module for the Cloudflare side, and the Worker. |
+| `tests/emulator/` | Tests that run against a local AWS Emulator: the adapters with the real AWS SDK, and a Terraform root that applies the lambda module. The root `package.json` holds their dependencies. |
 | `cdk/` | Python CDK construct `PowerSwitch`; ships `app/` as package data. |
 | `examples/` | Ready-to-run examples that deploy the switch as its own stack, [`terraform-standalone/`](examples/terraform-standalone) and [`cdk-standalone/`](examples/cdk-standalone). |
 | `docs/` | [Install inside your stack](docs/install.md), the [security model](docs/security.md), and [`demo/`](docs/demo): the recordings on this page and the scripts that make them. |
