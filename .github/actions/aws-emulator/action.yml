@@ -3,16 +3,11 @@ description: >
   Installs AWS Emulator (https://github.com/aws/aws-emulator) on a Linux x86_64 runner, starts it
   on 127.0.0.1, and points the AWS SDKs, the AWS CLI and Terraform at it for the rest of the job.
 
-inputs:
-  port:
-    description: HTTPS port the emulator listens on.
-    default: "9297"
-
 runs:
   using: composite
   steps:
     # AWS publishes no pinned-version URL, so this installs the latest LTS package. The package is
-    # only installed if AWS's signature on it is good and the signing key has the fingerprint from
+    # only installed if it carries a good signature made by the key with the fingerprint from
     # https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-linux.html
     - name: Download, verify and install
       shell: bash
@@ -28,16 +23,21 @@ runs:
         curl -fsSLo aws-publishing.asc "$KEY_URL"
         export GNUPGHOME="$(mktemp -d)"
         gpg --batch --quiet --import aws-publishing.asc
-        gpg --batch --with-colons --fingerprint | grep -q "^fpr:::::::::$KEY_FINGERPRINT:$" \
-          || { echo "::error::The AWS signing key's fingerprint is not the expected one"; exit 1; }
-        gpg --batch --verify aws-emulator.deb.sig aws-emulator.deb
+        # A good signature from any other key in the downloaded file must not count: the last
+        # field of gpg's VALIDSIG status line is the fingerprint of the key that signed. The
+        # status output also carries binary notation data, hence LC_ALL=C and grep -a. No -q: grep
+        # must read to the end, or gpg dies on a closed pipe and pipefail fails a good package.
+        gpg --batch --status-fd 1 --verify aws-emulator.deb.sig aws-emulator.deb \
+          | LC_ALL=C grep -a "^\[GNUPG:\] VALIDSIG .* $KEY_FINGERPRINT$" > /dev/null \
+          || { echo "::error::The package is not signed by the expected AWS key"; exit 1; }
         sudo apt-get install -y ./aws-emulator.deb
         aws-emulator --version
 
     - name: Start and wait until healthy
       shell: bash
       env:
-        PORT: ${{ inputs.port }}
+        # The port tests/emulator/terraform/main.tf expects.
+        PORT: "9297"
       run: |
         set -euo pipefail
         files="$HOME/.aws/emulator/$PORT"
