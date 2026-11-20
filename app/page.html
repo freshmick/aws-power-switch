@@ -4,34 +4,51 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Power switch</title>
+  <!-- The shared theme (app/theme/) is inlined at each placeholder by page.mjs. -->
+  <!-- theme:init -->
+  <!-- theme:css -->
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th:nth-child(1) { width: 45%; }
-    th:nth-child(2) { width: 35%; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; vertical-align: top; }
-    .state { font-weight: 600; }
-    .running { color: #1f7a1f; }
-    .stopped { color: #888; }
-    .starting, .stopping { color: #b36b00; }
-    .note { font-size: 0.85rem; color: #555; margin-top: 0.25rem; }
-    .error { color: #b00020; }
-    button { margin-right: 0.25rem; }
-    section { margin-top: 1.5rem; }
-    .group-head { display: flex; align-items: baseline; gap: 1rem; }
-    .group-head h2 { font-size: 1.1rem; margin: 0; }
+    /* Page layout only; colors, type and components come from the theme. */
+    :root { --width-page: 52rem; } /* header and content share this width */
+    h1.site-brand { margin: 0; }
+    /* Fixed layout keeps the columns of every group's table aligned. */
+    .table { table-layout: fixed; }
+    .table th:nth-child(2) { width: 30%; }
+    .table th:nth-child(3) { width: 10rem; } /* room for both buttons side by side, even on phones */
+    .actions { display: flex; justify-content: flex-end; gap: var(--space-xs); }
+    .group-head .actions { justify-content: flex-start; }
+    .note { margin-top: var(--space-2xs); color: var(--color-muted); font-size: var(--text-s); }
+    .muted { color: var(--color-muted); }
+    .theme-switch { margin-left: auto; }
+    section { margin-top: var(--space-l); }
+    .group-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-s) var(--space-m); margin-bottom: var(--space-s); }
+    .group-head h2 { margin: 0; font-size: var(--text-l); }
   </style>
 </head>
 <body>
-  <h1>Power switch</h1>
-  <p id="error" class="error" hidden></p>
-  <div id="groups"><p>Loading…</p></div>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <h1 class="site-brand">Power switch</h1>
+      <button type="button" role="switch" class="theme-switch" aria-checked="false" aria-label="Dark mode" data-theme-switch>
+        <span class="theme-switch-text theme-switch-light" aria-hidden="true">Light</span>
+        <span class="theme-switch-text theme-switch-dark" aria-hidden="true">Dark</span>
+        <span class="theme-switch-thumb" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+  <main class="container">
+    <div id="error" class="alert alert-danger" role="alert" hidden></div>
+    <div id="groups"><p class="muted">Loading…</p></div>
+  </main>
 
   <script>
     const REFRESH_MS = 5000;
     const SETTLED = ['running', 'stopped'];
     const LABELS = { ec2: 'EC2 instance', rds: 'RDS database' };
     const UNGROUPED = 'ungrouped';
+    // Theme status class per state; any other state is still changing.
+    const STATUS = { running: 'status-success', stopped: '' };
+    const CHANGING = 'status-warning status-busy';
     let timer;
     // The banner shows the last action's failures and the last load's failure, if any.
     let actionError = '';
@@ -85,6 +102,7 @@
       container.replaceChildren();
       if (!resources.length) {
         const empty = document.createElement('p');
+        empty.className = 'muted';
         empty.textContent = 'No resources tagged for the power switch.';
         container.append(empty);
         return;
@@ -112,9 +130,10 @@
       const title = document.createElement('h2');
       title.textContent = name || UNGROUPED;
       const actions = document.createElement('div');
+      actions.className = 'actions';
       actions.append(
         button('Start all', !resources.some((r) => r.state === 'stopped'), () => changeAll(resources, 'start')),
-        button('Stop all', !resources.some((r) => r.state === 'running'), () => changeAll(resources, 'stop')),
+        button('Stop all', !resources.some((r) => r.state === 'running'), () => changeAll(resources, 'stop'), 'secondary'),
       );
       head.append(title, actions);
       section.append(head, resourceTable(resources));
@@ -123,6 +142,7 @@
 
     function resourceTable(resources) {
       const table = document.createElement('table');
+      table.className = 'table';
       const headRow = row(['Resource', 'State', ''].map((text) => {
         const th = document.createElement('th');
         th.textContent = text;
@@ -132,14 +152,18 @@
       const body = table.createTBody();
       for (const resource of resources) {
         const name = cell(`${resource.name} (${LABELS[resource.type] || resource.type})`);
-        const state = cell(resource.state);
-        state.className = `state ${resource.state}`;
+        const state = cell();
+        state.className = 'state'; // hook for docs/demo/record-page.mjs
+        state.append(status(resource.state));
         if (resource.type === 'rds' && resource.state === 'stopped') state.append(autoStartNote(resource));
         const actions = cell();
-        actions.append(
+        const buttons = document.createElement('div');
+        buttons.className = 'actions';
+        buttons.append(
           button('Start', resource.state !== 'stopped', () => change(resource, 'start')),
-          button('Stop', resource.state !== 'running', () => change(resource, 'stop')),
+          button('Stop', resource.state !== 'running', () => change(resource, 'stop'), 'secondary'),
         );
+        actions.append(buttons);
         body.append(row([name, state, actions]));
       }
       return table;
@@ -166,8 +190,18 @@
       return td;
     }
 
-    function button(label, disabled, onClick) {
+    function status(state) {
+      const span = document.createElement('span');
+      span.className = `status ${STATUS[state] ?? CHANGING}`.trim();
+      span.textContent = state;
+      return span;
+    }
+
+    // variant 'secondary' outlines the button, for the less common of two actions.
+    function button(label, disabled, onClick, variant) {
       const b = document.createElement('button');
+      b.type = 'button';
+      b.className = variant === 'secondary' ? 'button button-secondary' : 'button';
       b.textContent = label;
       b.disabled = disabled;
       b.addEventListener('click', onClick);
@@ -192,5 +226,6 @@
 
     refresh();
   </script>
+  <!-- theme:switch -->
 </body>
 </html>
