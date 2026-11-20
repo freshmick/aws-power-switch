@@ -1,6 +1,5 @@
 // Lambda entry point (handler: index.handler). Wires the real AWS clients into the app once per
 // cold start; everything else is built from injected dependencies in the other modules.
-import { readFileSync } from 'node:fs';
 import { EC2Client } from '@aws-sdk/client-ec2';
 import { RDSClient } from '@aws-sdk/client-rds';
 import { SSMClient } from '@aws-sdk/client-ssm';
@@ -11,8 +10,9 @@ import { createHandler } from './handler.mjs';
 import { createEc2Adapter } from './ec2.mjs';
 import { createRdsAdapter } from './rds.mjs';
 import { createParameterLoader } from './ssm.mjs';
+import { loadPage } from './page.mjs';
 
-const page = readFileSync(new URL('./page.html', import.meta.url), 'utf8');
+const page = loadPage();
 
 async function buildApp() {
   const config = await loadConfig(process.env, createParameterLoader(new SSMClient()));

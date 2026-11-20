@@ -303,6 +303,7 @@ Both refuse to run against anything but an emulator on `127.0.0.1`.
 | Path | What's there |
 | --- | --- |
 | `app/` | The Lambda app: handler, Access verifier, origin check, EC2 and RDS adapters, and the page. Tests in `app/tests/`, dev server in `app/dev/`. |
+| `app/theme/` | The page's look: built files copied from [site-theme](https://github.com/freshmick/site-theme) and inlined into the page by `app/page.mjs`. Don't edit them; run `scripts/update-theme.sh <tag>` to update (`VERSION` says which tag they're from). |
 | `modules/lambda/` | Terraform module for the AWS side. |
 | `modules/cloudflare-edge/` | Terraform module for the Cloudflare side, and the Worker. |
 | `tests/emulator/` | Tests that run against a local AWS Emulator: the adapters with the real AWS SDK, and a Terraform root that applies the lambda module. The root `package.json` holds their dependencies. |

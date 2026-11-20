@@ -5,10 +5,10 @@
 // how the page reports a failed action.
 // Local development only; the Lambda package should leave out dev/ and tests/.
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
 import { createHandler } from '../handler.mjs';
 import { createResources } from '../resources.mjs';
 import { DEFAULT_TAG_KEY } from '../config.mjs';
+import { loadPage } from '../page.mjs';
 import { groupedEc2, groupedRds, failingOn } from './fakes.mjs';
 
 const port = Number(process.env.PORT) || 8787;
@@ -19,7 +19,7 @@ const withFailure = (adapter) => (failId ? failingOn(adapter, failId) : adapter)
 const handle = createHandler({
   verifyAccessToken: async () => ({ email: 'local@example.com' }),
   resources: createResources({ ec2: withFailure(groupedEc2()), rds: withFailure(groupedRds()), tagKey: DEFAULT_TAG_KEY }),
-  page: readFileSync(new URL('../page.html', import.meta.url), 'utf8'),
+  page: loadPage(),
   allowedOrigin: `http://localhost:${port}`,
 });
 
